@@ -9,16 +9,20 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import CSVLogger
 
 
-# Resnet
 class ResNetWrapper(pl.LightningModule):
-    def __init__(self, num_classes=100):
+    def __init__(self, num_classes=5):
         super().__init__()
-        self.resnet = models.resnet50(pretrained=True)
-        # Replace the final layer with a classifier for the specified number of classes
-        self.resnet.fc = nn.Linear(self.resnet.fc.in_features, num_classes)
+        backbone = models.resnet50(weights="DEFAULT")
+        num_filters = backbone.fc.in_features
+        layers = list(backbone.children())[:-1]
+        self.feature_extractor = nn.Sequential(*layers)
+        self.classifier = nn.Linear(num_filters, num_classes)
 
     def forward(self, x):
-        return self.resnet(x)
+        features = self.feature_extractor(x)
+        features = torch.flatten(features, 1)
+        logits = self.classifier(features)
+        return logits
 
     def training_step(self, batch, batch_idx):
         x, y = batch
@@ -42,7 +46,7 @@ batch_size = 64
 num_epochs = 3
 
 # Initialize ResNetWrapper model
-resnet_model = ResNetWrapper(num_classes=100)
+resnet_model = ResNetWrapper(num_classes=5)
 
 # Initialize data module
 data_dir = "/users/bened/codes/"
@@ -80,29 +84,27 @@ dm = MyDataModule(train, val, test, batch_size=batch_size, num_workers=0)  # Set
 
 # Initialize ModelCheckpoint callback to save model checkpoints
 checkpoint_callback = ModelCheckpoint(
-    dirpath='../res',  # Directory to save checkpoints
+    dirpath='../res1',  # Directory to save checkpoints
     filename='model-{epoch:02d}-{val_loss:.2f}',  # Checkpoint filename format
     save_top_k=1,  # Save only the best model based on validation loss
     mode='min',  # Monitoring mode (minimize validation loss)
 )
 
 # Initialize CSVLogger callback to log metrics to a CSV file
-csv_logger = CSVLogger('logs', name='resnet_logs', version=1)  # Save logs to 'logs/resnet_logs/version_1/'
+csv_logger = CSVLogger(save_dir='../res', name='resnet_logs', version=1)  # Save logs to 'resnet_logs/version_1/'
 
 # Initialize trainer with callbacks
 trainer = pl.Trainer(
     min_epochs=1,
     max_epochs=num_epochs,
-    precision=16,
+    precision='bf16-mixed',
     callbacks=[checkpoint_callback],
     logger=csv_logger,
+    val_check_interval=1.0,  # Perform validation every epoch
 )
 
 # Train the model
 trainer.fit(resnet_model, dm)
-
-# Validate the model
-trainer.validate(resnet_model, dm)
 
 # Test the model
 trainer.test(resnet_model, dm)
