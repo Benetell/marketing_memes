@@ -49,7 +49,7 @@ num_epochs = 3
 resnet_model = ResNetWrapper(num_classes=5)
 
 # Initialize data module
-data_dir = "/users/bened/codes/"
+data_dir = "/users/bened/codes/smaller_dataset/"
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
@@ -80,7 +80,7 @@ class MyDataModule(pl.LightningDataModule):
         return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers)
 
 
-dm = MyDataModule(train, val, test, batch_size=batch_size, num_workers=0)  # Set num_workers to 0
+dm = MyDataModule(train, val, test, batch_size=batch_size, num_workers=0)
 
 # Initialize ModelCheckpoint callback to save model checkpoints
 checkpoint_callback = ModelCheckpoint(
@@ -91,7 +91,7 @@ checkpoint_callback = ModelCheckpoint(
 )
 
 # Initialize CSVLogger callback to log metrics to a CSV file
-csv_logger = CSVLogger(save_dir='../res', name='resnet_logs', version=1)  # Save logs to 'resnet_logs/version_1/'
+csv_logger = CSVLogger(save_dir='../res', name='resnet_logs', version=1)
 
 # Initialize trainer with callbacks
 trainer = pl.Trainer(
@@ -100,7 +100,8 @@ trainer = pl.Trainer(
     precision='bf16-mixed',
     callbacks=[checkpoint_callback],
     logger=csv_logger,
-    val_check_interval=1.0,  # Perform validation every epoch
+    val_check_interval=1.0,
+    log_every_n_steps=7
 )
 
 # Train the model
