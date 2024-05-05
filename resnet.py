@@ -37,13 +37,21 @@ class ResNetWrapper(pl.LightningModule):
         loss = nn.CrossEntropyLoss()(logits, y)
         self.log('val_loss', loss)
 
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+        logits = self(x)
+        loss = nn.CrossEntropyLoss()(logits, y)
+        preds = logits.argmax(dim=1)
+        # Compute any additional metrics here if needed
+        return {'test_loss': loss, 'preds': preds, 'labels': y}
+
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=0.001)
 
 
 # Hyperparameters
 batch_size = 64
-num_epochs = 3
+num_epochs = 13
 
 # Initialize ResNetWrapper model
 resnet_model = ResNetWrapper(num_classes=5)
@@ -108,4 +116,4 @@ trainer = pl.Trainer(
 trainer.fit(resnet_model, dm)
 
 # Test the model
-trainer.test(resnet_model, dm)
+trainer.test(model=resnet_model, ckpt_path="../res1/model-epoch=02-val_loss=1.36.ckpt", verbose=True, datamodule=dm)
